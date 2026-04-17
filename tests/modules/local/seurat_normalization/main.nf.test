@@ -1,0 +1,96 @@
+nextflow_process {
+
+    name "Test SEURAT_NORMALIZATION"
+    script "../../../../modules/local/seurat_normalization.nf"
+    process "SEURAT_NORMALIZATION"
+    tag "modules"
+    tag "seurat_normalization"
+
+    setup {
+        run("STAR_GENOMEGENERATE") {
+            script "../../../../modules/local/star_genomegenerate.nf"
+            process {
+                """
+                input[0] = file("${params.test_data_base}/reference/GRCm38.p6.genome.chr19.fa", checkIfExists: true)
+                input[1] = file("${params.test_data_base}/reference/gencode.vM19.annotation.chr19.gtf", checkIfExists: true)
+                """
+            }
+        }
+        run("STARSOLO") {
+            script "../../../../modules/local/starsolo.nf"
+            process {
+                """
+                input[0] = [
+                    [ id: 'Sample_X', condition: 'control' ],
+                    [
+                        file("${params.test_data_base}/testdata/cellranger/Sample_X_S1_L001_R1_001.fastq.gz", checkIfExists: true),
+                        file("${params.test_data_base}/testdata/cellranger/Sample_X_S1_L001_R2_001.fastq.gz", checkIfExists: true)
+                    ]
+                ]
+                input[1] = STAR_GENOMEGENERATE.out.index
+                input[2] = file("${params.test_data_base}/reference/gencode.vM19.annotation.chr19.gtf", checkIfExists: true)
+                input[3] = file("${params.test_data_base}/reference/10xv2_whitelist_sub50K.txt", checkIfExists: true)
+                """
+            }
+        }
+        run("SEURAT_QC") {
+            script "../../../../modules/local/seurat_qc.nf"
+            process {
+                """
+                input[0] = STARSOLO.out.solo_out
+                input[1] = file("${projectDir}/assets/samplesheet_test.csv", checkIfExists: true)
+                """
+            }
+        }
+        run("SEURAT_POSTQC") {
+            script "../../../../modules/local/seurat_postqc.nf"
+            process {
+                """
+                input[0] = SEURAT_QC.out.rds
+                """
+            }
+        }
+    }
+
+    test("Should normalize and compute PCs") {
+
+        when {
+            params {
+                input_type         = 'fastq'
+                technology         = '10x'
+                technology_version = 'v2'
+                star_extra_args    = null
+                random_seed        = 4848
+                gene_case          = 'lowercase'
+                min_cells_per_gene = 1
+                min_feat           = 1
+                max_feat           = 100000
+                min_count          = null
+                max_count          = null
+                mit_pct            = 100
+                ribo_pct           = 100
+                write_table        = true
+                norm_type          = 'standard'
+                variable_features  = true
+                regress_out        = false
+                vars_to_regress    = 'percent.mt'
+                regress_cell_cycle = false
+                regress_merge_effect = false
+            }
+            process {
+                """
+                input[0] = SEURAT_POSTQC.out.rds
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert process.out.rds.size() == 1 },
+                { assert process.out.rds[0][1].toString().endsWith('.rds') },
+                { assert process.out.rds[0][0].id == 'Sample_X' }
+            )
+        }
+    }
+}

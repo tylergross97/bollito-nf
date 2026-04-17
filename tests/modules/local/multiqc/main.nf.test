@@ -1,0 +1,46 @@
+nextflow_process {
+
+    name "Test MULTIQC"
+    script "../../../../modules/local/multiqc.nf"
+    process "MULTIQC"
+    tag "modules"
+    tag "multiqc"
+
+    setup {
+        run("FASTQC") {
+            script "../../../../modules/local/fastqc.nf"
+            process {
+                """
+                input[0] = [
+                    [ id: 'Sample_X' ],
+                    [
+                        file("${params.test_data_base}/testdata/cellranger/Sample_X_S1_L001_R1_001.fastq.gz", checkIfExists: true),
+                        file("${params.test_data_base}/testdata/cellranger/Sample_X_S1_L001_R2_001.fastq.gz", checkIfExists: true)
+                    ]
+                ]
+                """
+            }
+        }
+    }
+
+    test("Should aggregate FastQC results into MultiQC report") {
+
+        when {
+            process {
+                """
+                input[0] = FASTQC.out.zip.map { meta, zip -> zip }.collect()
+                input[1] = file('NO_FILE')
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert process.out.report.size() == 1 },
+                { assert process.out.report[0].toString().endsWith('multiqc_report.html') },
+                { assert process.out.data.size() == 1 }
+            )
+        }
+    }
+}

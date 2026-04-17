@@ -154,6 +154,50 @@ nextflow run main.nf -profile test,docker
 
 ---
 
+## Testing
+
+This pipeline uses [nf-test](https://www.nf-test.com/) for automated testing. Tests cover both individual modules and the full pipeline.
+
+### Running tests
+
+```bash
+# Run all tests
+nf-test test
+
+# Run the full pipeline test
+nf-test test --tag pipeline
+
+# Run a specific module test
+nf-test test --tag fastqc
+nf-test test --tag starsolo
+
+# Run with verbose output
+nf-test test --verbose
+```
+
+### Test coverage
+
+| Test | Tag | What it validates |
+|---|---|---|
+| Pipeline end-to-end | `pipeline` | Full FASTQ→clustering workflow with test profile |
+| FASTQC | `fastqc` | QC report generation from scRNA-seq reads |
+| STAR_GENOMEGENERATE | `star_genomegenerate` | STAR index build from chr19 reference |
+| STARSOLO | `starsolo` | 10x v2 alignment with STARsolo (BAM + Solo.out) |
+| MULTIQC | `multiqc` | Aggregation of FastQC reports |
+| GTF2BED | `gtf2bed` | GTF → BED12 format conversion |
+| SEURAT_QC | `seurat_qc` | Seurat object creation with QC metrics |
+| SEURAT_POSTQC | `seurat_postqc` | Cell filtering by QC thresholds |
+| SEURAT_NORMALIZATION | `seurat_normalization` | Standard normalization + PCA |
+| SEURAT_FIND_CLUSTERS | `seurat_find_clusters` | Neighbor finding, clustering, and UMAP |
+
+Tests use the [nf-core/scrnaseq test dataset](https://github.com/nf-core/test-datasets/tree/scrnaseq) (10x Chromium v2, mouse chr19).
+
+### CI
+
+Tests run automatically on push and pull request via GitHub Actions (`.github/workflows/nf-test.yml`). Each module test runs as a separate matrix job for fast parallel feedback.
+
+---
+
 ## Credits
 
 Original pipeline: [CNIO Bioinformatics Unit — bollito](https://gitlab.com/bu_cnio/bollito)  

@@ -1,0 +1,35 @@
+nextflow_process {
+
+    name "Test FASTQC"
+    script "../../../../modules/local/fastqc.nf"
+    process "FASTQC"
+    tag "modules"
+    tag "fastqc"
+
+    test("Should run FastQC on 10x scRNA-seq reads") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'Sample_X' ],
+                    [
+                        file("${params.test_data_base}/testdata/cellranger/Sample_X_S1_L001_R1_001.fastq.gz", checkIfExists: true),
+                        file("${params.test_data_base}/testdata/cellranger/Sample_X_S1_L001_R2_001.fastq.gz", checkIfExists: true)
+                    ]
+                ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert process.out.zip.size() == 1 },
+                { assert process.out.html.size() == 1 },
+                { assert process.out.zip[0][1].every { it.toString().endsWith('.zip') } },
+                { assert process.out.html[0][1].every { it.toString().endsWith('.html') } }
+            )
+        }
+    }
+}

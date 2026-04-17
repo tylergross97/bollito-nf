@@ -1,0 +1,30 @@
+nextflow_process {
+
+    name "Test GTF2BED"
+    script "../../../../modules/local/gtf2bed.nf"
+    process "GTF2BED"
+    tag "modules"
+    tag "gtf2bed"
+
+    test("Should convert GTF to BED12 format") {
+
+        when {
+            process {
+                """
+                input[0] = file("${params.test_data_base}/reference/gencode.vM19.annotation.chr19.gtf", checkIfExists: true)
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert process.out.bed.size() == 1 },
+                { assert process.out.bed[0].toString().endsWith('.bed') },
+                { assert path(process.out.bed[0]).readLines().size() > 0 },
+                // BED12 has 12 tab-delimited columns
+                { assert path(process.out.bed[0]).readLines()[0].split('\t').size() == 12 }
+            )
+        }
+    }
+}

@@ -118,7 +118,7 @@ workflow {
         // Whitelist
         ch_whitelist = params.whitelist
             ? channel.of(resolveFile(params.whitelist)).collect()
-            : channel.value(file('NO_FILE'))
+            : channel.value([])
 
         // Group FASTQ by sample (merge multi-unit/lane rows)
         ch_reads_grouped = ch_input_raw
@@ -164,7 +164,7 @@ workflow {
         // MultiQC
         ch_multiqc_config = params.multiqc_config
             ? channel.fromPath(params.multiqc_config, checkIfExists: true)
-            : channel.value(file('NO_FILE'))
+            : channel.value([])
 
         MULTIQC(ch_multiqc_files.collect(), ch_multiqc_config)
 

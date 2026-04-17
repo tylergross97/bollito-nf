@@ -26,9 +26,17 @@ The conversion covered the full analysis surface: alignment (STARsolo), QC (Fast
 
 ### Step 2 — Claude Code + Seqera MCP: test runs from the CLI
 
-After the conversion, Claude Code was used with the [Seqera MCP server](https://github.com/seqeralabs/mcp-seqera) to run and iterate on the pipeline directly from the terminal — no browser required.
+After the conversion, Claude Code was used with the [Seqera MCP server](https://github.com/seqeralabs/mcp-seqera) to execute and validate the pipeline directly from the terminal. The Seqera MCP gives Claude Code live access to the Seqera Platform API — launch runs, inspect compute environments, and pull execution logs without leaving your editor.
 
-The Seqera MCP server gives Claude Code direct access to the Seqera Platform API, so you can launch runs, inspect compute environments, manage datasets, and pull execution logs without leaving your editor.
+Running the test profile surfaced several real incompatibilities between the generated pipeline and the current Seurat/Nextflow ecosystem. Claude Code diagnosed and fixed them in-place:
+
+| File | Fix |
+|---|---|
+| `seurat_qc.nf`, `seurat_postqc.nf` | Replaced `VlnPlot()` and `FeatureScatter()` with direct ggplot2 — Seurat v5.1.0 introduced a `FetchData` API regression that broke both calls |
+| `seurat_find_clusters.nf` | Made `SeuratDisk` and `lisi` optional dependencies; removed them from the conda spec and added graceful fallbacks so a missing package doesn't fail the entire process |
+| `conf/test.config` | Switched `norm_type` from `SCT` to `standard` to work around a `slot=` API bug in Seurat 5.1.0 + SeuratObject 5.0; relaxed QC thresholds to match the chr19-only test reference |
+
+After these fixes the test profile completed successfully end-to-end.
 
 Example session:
 
@@ -39,11 +47,16 @@ $ claude
 
 # Claude Code uses the Seqera MCP to:
 # 1. Find matching compute environments via the API
-# 2. Launch the pipeline with -profile test
-# 3. Stream back the run status and any process-level errors
+# 2. Launch the pipeline with -profile test,wave
+# 3. Stream back the run status and surface any process-level errors
+
+> the SEURAT_QC process is failing — VlnPlot error in Seurat v5, fix it
+
+# Claude Code reads the module, rewrites the plotting block with ggplot2,
+# commits the fix, and relaunches — no context switch to the browser needed
 ```
 
-This makes the development loop much tighter: catch a process failure, fix the module, relaunch — without switching context to the Seqera Platform UI.
+This is the development loop in practice: catch a failure in the platform logs, fix the module, relaunch — all from one terminal session.
 
 ---
 

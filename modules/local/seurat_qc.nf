@@ -84,14 +84,25 @@ process SEURAT_QC {
         message("Could not read samples metadata: ", e\$message)
     })
 
-    # Generate QC plots
+    # Generate QC plots directly from metadata (avoids Seurat v5 VlnPlot/FetchData API issues)
+    qc_meta <- seurat_obj@meta.data[, c("nFeature_RNA", "nCount_RNA", "percent.mt", "percent.ribo")]
+    vln_plots <- lapply(colnames(qc_meta), function(feat) {
+        df <- data.frame(x = "cells", y = qc_meta[[feat]])
+        ggplot(df, aes(x = x, y = y)) +
+            geom_violin(fill = "grey80") +
+            geom_jitter(size = 0.1, alpha = 0.3, width = 0.2) +
+            labs(title = feat, x = "", y = "") +
+            theme_classic() +
+            theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+    })
     pdf("${meta.id}_vlnplot_QC_prefilt.pdf", width = 12, height = 6)
-    print(VlnPlot(seurat_obj, features = c("nFeature_RNA", "nCount_RNA", "percent.mt", "percent.ribo"), ncol = 4))
+    print(patchwork::wrap_plots(vln_plots, ncol = 4))
     dev.off()
 
     pdf("${meta.id}_geneplot_numi_vs_pctmit_ngene.pdf", width = 12, height = 5)
-    plot1 <- FeatureScatter(seurat_obj, feature1 = "nCount_RNA", feature2 = "percent.mt")
-    plot2 <- FeatureScatter(seurat_obj, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+    df_scatter <- seurat_obj@meta.data[, c("nCount_RNA", "percent.mt", "nFeature_RNA")]
+    plot1 <- ggplot(df_scatter, aes(x = nCount_RNA, y = percent.mt))    + geom_point(size = 0.3, alpha = 0.5) + theme_classic()
+    plot2 <- ggplot(df_scatter, aes(x = nCount_RNA, y = nFeature_RNA)) + geom_point(size = 0.3, alpha = 0.5) + theme_classic()
     print(plot1 + plot2)
     dev.off()
 

@@ -2,7 +2,7 @@ process SEURAT_FIND_CLUSTERS {
     tag "${meta.id}"
     label 'process_medium'
 
-    conda 'conda-forge::r-seurat=5.1.0 conda-forge::r-dplyr conda-forge::r-data.table conda-forge::r-ggplot2 conda-forge::r-clustree conda-forge::r-cluster conda-forge::r-writexl conda-forge::r-future conda-forge::r-patchwork conda-forge::r-lisi bioconda::r-seuratdisk=0.0.0.9021'
+    conda 'conda-forge::r-seurat=5.1.0 conda-forge::r-dplyr conda-forge::r-data.table conda-forge::r-ggplot2 conda-forge::r-clustree conda-forge::r-cluster conda-forge::r-writexl conda-forge::r-future conda-forge::r-patchwork'
 
     input:
     tuple val(meta), path(rds)
@@ -16,7 +16,6 @@ process SEURAT_FIND_CLUSTERS {
     #!/usr/bin/env Rscript
 
     suppressMessages(library("Seurat"))
-    suppressMessages(library("SeuratDisk"))
     suppressMessages(library("dplyr"))
     suppressMessages(library("clustree"))
     suppressMessages(library("ggplot2"))
@@ -24,7 +23,9 @@ process SEURAT_FIND_CLUSTERS {
     suppressMessages(library("writexl"))
     suppressMessages(library("future"))
     suppressMessages(library("patchwork"))
-    suppressMessages(library("lisi"))
+    # Optional packages — fail gracefully if not installed
+    has_seuratdisk <- tryCatch({ suppressMessages(library("SeuratDisk")); TRUE }, error = function(e) FALSE)
+    has_lisi       <- tryCatch({ suppressMessages(library("lisi"));       TRUE }, error = function(e) FALSE)
 
     message("=== SEURAT FIND CLUSTERS: ${meta.id} ===")
 
@@ -79,30 +80,38 @@ process SEURAT_FIND_CLUSTERS {
         }
     }
 
-    # Compute LISI if batch metadata exists
-    tryCatch({
-        if (batch_metadata %in% colnames(seurat_obj@meta.data)) {
-            lisi_res <- compute_lisi(Embeddings(seurat_obj, "umap"),
-                                     seurat_obj@meta.data,
-                                     batch_metadata)
-            seurat_obj\$LISI <- lisi_res[, 1]
-        }
-    }, error = function(e) {
-        message("LISI computation failed: ", e\$message)
-    })
+    # Compute LISI if batch metadata exists and lisi package is available
+    if (has_lisi) {
+        tryCatch({
+            if (batch_metadata %in% colnames(seurat_obj@meta.data)) {
+                lisi_res <- compute_lisi(Embeddings(seurat_obj, "umap"),
+                                         seurat_obj@meta.data,
+                                         batch_metadata)
+                seurat_obj\$LISI <- lisi_res[, 1]
+            }
+        }, error = function(e) {
+            message("LISI computation failed: ", e\$message)
+        })
+    } else {
+        message("lisi package not available, skipping LISI computation")
+    }
 
     # Save RDS
     saveRDS(seurat_obj, file = "${meta.id}_seurat_find-clusters.rds")
 
-    # Save h5ad for scanpy interoperability
-    tryCatch({
-        SaveH5Seurat(seurat_obj, filename = "${meta.id}_seurat_find-clusters.h5seurat", overwrite = TRUE)
-        Convert("${meta.id}_seurat_find-clusters.h5seurat", dest = "h5ad", overwrite = TRUE)
-    }, error = function(e) {
-        message("h5ad conversion failed: ", e\$message)
-        # Create empty placeholder
+    # Save h5ad for scanpy interoperability (requires SeuratDisk)
+    if (has_seuratdisk) {
+        tryCatch({
+            SaveH5Seurat(seurat_obj, filename = "${meta.id}_seurat_find-clusters.h5seurat", overwrite = TRUE)
+            Convert("${meta.id}_seurat_find-clusters.h5seurat", dest = "h5ad", overwrite = TRUE)
+        }, error = function(e) {
+            message("h5ad conversion failed: ", e\$message)
+            file.create("${meta.id}_seurat_find-clusters.h5ad")
+        })
+    } else {
+        message("SeuratDisk not available, skipping h5ad conversion")
         file.create("${meta.id}_seurat_find-clusters.h5ad")
-    })
+    }
 
     message("Clustering complete for ${meta.id}")
     """

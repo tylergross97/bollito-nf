@@ -55,9 +55,19 @@ process SEURAT_POSTQC {
     ncells_post <- ncol(seurat_obj)
     message(paste0("Cells: ", ncells_pre, " -> ", ncells_post, " (removed ", ncells_pre - ncells_post, ")"))
 
-    # Post-filter QC plots
+    # Post-filter QC plots (direct ggplot2 to avoid Seurat v5 VlnPlot/FetchData API issues)
+    qc_meta <- seurat_obj@meta.data[, c("nFeature_RNA", "nCount_RNA", "percent.mt", "percent.ribo")]
+    vln_plots <- lapply(colnames(qc_meta), function(feat) {
+        df <- data.frame(x = "cells", y = qc_meta[[feat]])
+        ggplot(df, aes(x = x, y = y)) +
+            geom_violin(fill = "grey80") +
+            geom_jitter(size = 0.1, alpha = 0.3, width = 0.2) +
+            labs(title = feat, x = "", y = "") +
+            theme_classic() +
+            theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+    })
     pdf("${meta.id}_vlnplot_QC_postfilt.pdf", width = 12, height = 6)
-    print(VlnPlot(seurat_obj, features = c("nFeature_RNA", "nCount_RNA", "percent.mt", "percent.ribo"), ncol = 4))
+    print(patchwork::wrap_plots(vln_plots, ncol = 4))
     dev.off()
 
     # Stats table

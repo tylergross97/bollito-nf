@@ -8,7 +8,7 @@ process STARSOLO {
     tuple val(meta), path(reads)
     path index
     path gtf
-    path whitelist, optional: true
+    path whitelist
 
     output:
     tuple val(meta), path("${meta.id}/Aligned.sortedByCoord.out.bam"), emit: bam
@@ -40,7 +40,7 @@ process STARSOLO {
     // For 10x: R1 = barcode+UMI, R2 = cDNA insert
     def read_files_in = "${r2_files} ${r1_files}"
 
-    def whitelist_opt = whitelist ? "--soloCBwhitelist ${whitelist}" : "--soloCBwhitelist None"
+    def whitelist_opt = whitelist.name != 'NO_FILE' ? "--soloCBwhitelist ${whitelist}" : "--soloCBwhitelist None"
     def gz_opt = reads[0].name.endsWith('.gz') ? "--readFilesCommand zcat" : ""
 
     """

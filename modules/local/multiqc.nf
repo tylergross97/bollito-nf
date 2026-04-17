@@ -6,14 +6,14 @@ process MULTIQC {
 
     input:
     path('multiqc_input/*')
-    path multiqc_config, optional: true
+    path multiqc_config
 
     output:
     path 'multiqc_report.html', emit: report
     path 'multiqc_data',        emit: data
 
     script:
-    def config_opt = multiqc_config ? "--config ${multiqc_config}" : ""
+    def config_opt = multiqc_config.name != 'NO_FILE' ? "--config ${multiqc_config}" : ""
     """
     multiqc ${config_opt} --force multiqc_input/
     """

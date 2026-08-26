@@ -1,0 +1,30 @@
+nextflow_process {
+
+    name "Test STAR_GENOMEGENERATE"
+    script "../../../../modules/local/star_genomegenerate.nf"
+    process "STAR_GENOMEGENERATE"
+    tag "modules"
+    tag "star_genomegenerate"
+
+    test("Should build STAR index from mouse chr19 reference") {
+
+        when {
+            process {
+                """
+                input[0] = file("${params.test_data_base}/reference/GRCm38.p6.genome.chr19.fa", checkIfExists: true)
+                input[1] = file("${params.test_data_base}/reference/gencode.vM19.annotation.chr19.gtf", checkIfExists: true)
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert process.out.index },
+                { assert path(process.out.index[0]).resolve('Genome').exists() },
+                { assert path(process.out.index[0]).resolve('SA').exists() },
+                { assert path(process.out.index[0]).resolve('SAindex').exists() }
+            )
+        }
+    }
+}

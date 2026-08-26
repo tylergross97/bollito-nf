@@ -2,3 +2,7 @@
 .nextflow.log*
 work/
 results/
+
+# nf-test
+.nf-test/
+.nf-test.log

@@ -1,0 +1,56 @@
+nextflow_process {
+
+    name "Test STARSOLO"
+    script "../../../../modules/local/starsolo.nf"
+    process "STARSOLO"
+    tag "modules"
+    tag "starsolo"
+
+    setup {
+        run("STAR_GENOMEGENERATE") {
+            script "../../../../modules/local/star_genomegenerate.nf"
+            process {
+                """
+                input[0] = file("${params.test_data_base}/reference/GRCm38.p6.genome.chr19.fa", checkIfExists: true)
+                input[1] = file("${params.test_data_base}/reference/gencode.vM19.annotation.chr19.gtf", checkIfExists: true)
+                """
+            }
+        }
+    }
+
+    test("Should align 10x v2 reads with STARsolo") {
+
+        when {
+            params {
+                technology         = '10x'
+                technology_version = 'v2'
+                star_extra_args    = null
+            }
+            process {
+                """
+                input[0] = [
+                    [ id: 'Sample_X' ],
+                    [
+                        file("${params.test_data_base}/testdata/cellranger/Sample_X_S1_L001_R1_001.fastq.gz", checkIfExists: true),
+                        file("${params.test_data_base}/testdata/cellranger/Sample_X_S1_L001_R2_001.fastq.gz", checkIfExists: true)
+                    ]
+                ]
+                input[1] = STAR_GENOMEGENERATE.out.index
+                input[2] = file("${params.test_data_base}/reference/gencode.vM19.annotation.chr19.gtf", checkIfExists: true)
+                input[3] = file("${params.test_data_base}/reference/10xv2_whitelist_sub50K.txt", checkIfExists: true)
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert process.out.bam.size() == 1 },
+                { assert process.out.bam[0][1].toString().endsWith('.bam') },
+                { assert process.out.solo_out.size() == 1 },
+                { assert process.out.log.size() == 1 },
+                { assert process.out.log[0][1].toString().endsWith('Log.final.out') }
+            )
+        }
+    }
+}
